@@ -1,0 +1,23 @@
+# Binaries
+gitguardian
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Vendor or generated folders
+vendor/
+node_modules/
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# Editor files
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# Go build and test
+*.test
