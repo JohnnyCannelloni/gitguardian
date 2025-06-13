@@ -51,6 +51,12 @@ If no paths are provided, scans the current directory.`,
 			allFindings = append(allFindings, findings...)
 		}
 
+		// ── Social‐engineering scan: latest commit message ─────────────────────
+		commitFnds, err := scanner.ScanLastCommitMessage()
+		if err == nil && len(commitFnds) > 0 {
+			allFindings = append(allFindings, commitFnds...)
+		}
+
 		// 5) Print each finding
 		for _, f := range allFindings {
 			fmt.Printf("%s:%d: [%s] %s\n", f.File, f.Line, f.Rule, f.Content)

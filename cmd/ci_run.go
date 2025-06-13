@@ -30,6 +30,11 @@ var ciRunCmd = &cobra.Command{
 		}
 
 		sec, _ := scanner.ScanPath(abs, cfg)
+		// Include commit-message checks
+		commitF, err := scanner.ScanLastCommitMessage()
+		if err == nil && len(commitF) > 0 {
+			sec = append(sec, commitF...)
+		}
 		dep, _ := deps.CombinedScan(abs)
 		all := append(sec, dep...)
 
