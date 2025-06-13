@@ -1,0 +1,33 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.21"
+
+      - name: Build
+        run: go build -o gitguardian .
+
+      - name: Run CI scans
+        id: scan
+        run: |
+          chmod +x gitguardian
+          ./gitguardian ci-run . > findings.json || true
+
+      - name: Annotate findings
+        uses: jebbs/gha-annotate-findings@v1
+        with:
+          path: findings.json
