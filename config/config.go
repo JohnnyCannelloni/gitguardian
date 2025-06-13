@@ -8,14 +8,11 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Config represents the contents of .gitguardian.yml
 type Config struct {
 	IgnoreRules []string `yaml:"ignore_rules"`
 	IgnorePaths []string `yaml:"ignore_paths"`
 }
 
-// LoadConfig attempts to read a .gitguardian.yml in the given root.
-// If the file does not exist, it returns an empty Config (no ignores).
 func LoadConfig(root string) (*Config, error) {
 	cfgPath := filepath.Join(root, ".gitguardian.yml")
 	if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
@@ -32,7 +29,6 @@ func LoadConfig(root string) (*Config, error) {
 	return &cfg, nil
 }
 
-// MatchesRule returns true if the given rule is in IgnoreRules.
 func (c *Config) MatchesRule(rule string) bool {
 	for _, r := range c.IgnoreRules {
 		if r == rule {
@@ -42,11 +38,9 @@ func (c *Config) MatchesRule(rule string) bool {
 	return false
 }
 
-// MatchesPath returns true if the given relative path matches any IgnorePaths glob.
-func (c *Config) MatchesPath(relPath string) bool {
-	for _, pattern := range c.IgnorePaths {
-		ok, _ := filepath.Match(pattern, relPath)
-		if ok {
+func (c *Config) MatchesPath(rel string) bool {
+	for _, pat := range c.IgnorePaths {
+		if ok, _ := filepath.Match(pat, rel); ok {
 			return true
 		}
 	}

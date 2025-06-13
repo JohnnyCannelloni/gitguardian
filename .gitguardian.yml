@@ -1,7 +1,5 @@
-# .gitguardian.yml
 ignore_rules:
   - HighEntropy
-  - MongoDBURI
 
 ignore_paths:
   - vendor/*
