@@ -1,0 +1,56 @@
+# Create .gitignore file
+cat > .gitignore << 'EOF'
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+gitguardian
+build/
+dist/
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+coverage.html
+
+# Go workspace file
+go.work
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+temp/
+tmp/
+
+# Config files with secrets (keep examples)
+.gitguardian.json
+!.gitguardian.example.json
+
+# Test artifacts
+scan_results.json
+dependency_results.json
+gitguardian.sarif
+EOF
