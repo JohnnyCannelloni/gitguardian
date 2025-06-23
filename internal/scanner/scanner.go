@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/yourusername/gitguardian/internal/config"
+	"github.com/JohnnyCannelloni/gitguardian/internal/config"
 )
 
 // ScanType defines what to scan for

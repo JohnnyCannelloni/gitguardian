@@ -83,19 +83,19 @@ func Load(configPath string) (*Config, error) {
 		if err := json.Unmarshal(data, cfg); err != nil {
 			return nil, fmt.Errorf("failed to parse config file: %w", err)
 		}
-	}
 
-	// Compile regex patterns
-	if err := cfg.compilePatterns(); err != nil {
-		return nil, fmt.Errorf("failed to compile patterns: %w", err)
+		// Compile patterns after loading from file
+		if err := cfg.compilePatterns(); err != nil {
+			return nil, fmt.Errorf("failed to compile patterns: %w", err)
+		}
 	}
 
 	return cfg, nil
 }
 
-// DefaultConfig returns a default configuration
+// DefaultConfig returns a default configuration with compiled patterns
 func DefaultConfig() *Config {
-	return &Config{
+	cfg := &Config{
 		Verbose:        false,
 		MaxFileSize:    10 * 1024 * 1024, // 10MB
 		MaxConcurrency: 4,
@@ -184,6 +184,14 @@ func DefaultConfig() *Config {
 			RequireJustification: false,
 		},
 	}
+
+	// IMPORTANT: Compile patterns immediately after creating config
+	if err := cfg.compilePatterns(); err != nil {
+		// If compilation fails, create a config with empty patterns rather than panic
+		cfg.SecretPatterns = []SecretPattern{}
+	}
+
+	return cfg
 }
 
 // compilePatterns compiles all regex patterns
