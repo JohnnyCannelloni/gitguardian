@@ -6,9 +6,9 @@ import (
 	"log"
 	"os"
 
-	"github.com/yourusername/gitguardian/internal/config"
-	"github.com/yourusername/gitguardian/internal/hooks"
-	"github.com/yourusername/gitguardian/internal/scanner"
+	"github.com/JohnnyCannelloni/gitguardian/internal/config"
+	"github.com/JohnnyCannelloni/gitguardian/internal/hooks"
+	"github.com/JohnnyCannelloni/gitguardian/internal/scanner"
 )
 
 func main() {
