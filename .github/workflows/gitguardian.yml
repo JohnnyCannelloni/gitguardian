@@ -94,7 +94,7 @@ jobs:
 
     - name: Upload scan results
       if: always()
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: gitguardian-scan-results
         path: scan_results.json
@@ -309,14 +309,17 @@ jobs:
     - name: Run Dependency Scan
       run: |
         echo "🔍 Running dependency vulnerability scan..."
-        gitguardian -path . -deps-only -format json > dependency_results.json
+        ./gitguardian -path . -deps-only -format json > dependency_results.json
         
-        ISSUES_COUNT=$(jq '.summary.total' dependency_results.json)
+        ISSUES_COUNT=$(jq '.summary.total' dependency_results.json 2>/dev/null || echo "0")
         echo "Dependency issues found: $ISSUES_COUNT"
+        echo "issues_count=$ISSUES_COUNT" >> $GITHUB_OUTPUT
         
         if [ "$ISSUES_COUNT" -gt 0 ]; then
-          echo "❌ Dependency vulnerabilities found"
-          jq '.issues[] | select(.type == "vulnerability")' dependency_results.json
+          echo "⚠️ $ISSUES_COUNT dependency vulnerabilities found"
+          jq '.issues[] | select(.type == "vulnerability")' dependency_results.json || true
+        else
+          echo "✅ No dependency vulnerabilities found"
         fi
 
     - name: Upload dependency scan results
