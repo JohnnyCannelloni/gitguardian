@@ -45,11 +45,9 @@ Thumbs.db
 temp/
 tmp/
 
-# Config files with secrets (keep examples)
 .gitguardian.json
 !.gitguardian.example.json
 
-# Test artifacts
 scan_results.json
 dependency_results.json
 gitguardian.sarif

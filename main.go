@@ -23,7 +23,6 @@ func main() {
 	)
 	flag.Parse()
 
-	// Load configuration
 	cfg, err := config.Load(*configFile)
 	if err != nil {
 		log.Fatalf("Failed to load configuration: %v", err)
@@ -33,7 +32,6 @@ func main() {
 		cfg.Verbose = true
 	}
 
-	// Install Git hooks if requested
 	if *installHooks {
 		if err := hooks.Install(*scanPath); err != nil {
 			log.Fatalf("Failed to install hooks: %v", err)
@@ -42,10 +40,9 @@ func main() {
 		return
 	}
 
-	// Initialize scanner
 	s := scanner.New(cfg)
 
-	// Determine scan type
+	// determine scan type
 	scanType := scanner.ScanTypeAll
 	if *onlySecrets {
 		scanType = scanner.ScanTypeSecrets
@@ -53,18 +50,16 @@ func main() {
 		scanType = scanner.ScanTypeDependencies
 	}
 
-	// Run scan
 	results, err := s.ScanPath(*scanPath, scanType)
 	if err != nil {
 		log.Fatalf("Scan failed: %v", err)
 	}
 
-	// Output results
 	if err := outputResults(results, *format); err != nil {
 		log.Fatalf("Failed to output results: %v", err)
 	}
 
-	// Exit with error code if issues found
+	// exit with error code if issues found
 	if results.HasIssues() {
 		os.Exit(1)
 	}

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,7 +13,7 @@ import (
 	"github.com/JohnnyCannelloni/gitguardian/internal/config"
 )
 
-// ScanType defines what to scan for
+// defines what to scan for
 type ScanType int
 
 const (
@@ -24,12 +23,11 @@ const (
 	ScanTypeSocial
 )
 
-// Scanner is the main security scanner
+// main security scanner
 type Scanner struct {
 	config *config.Config
 }
 
-// Issue represents a security issue found during scanning
 type Issue struct {
 	Type        string    `json:"type"`
 	Severity    string    `json:"severity"`
@@ -42,7 +40,6 @@ type Issue struct {
 	Timestamp   time.Time `json:"timestamp"`
 }
 
-// Results holds all scan results
 type Results struct {
 	ScanTime     time.Time `json:"scan_time"`
 	Duration     string    `json:"duration"`
@@ -51,7 +48,6 @@ type Results struct {
 	Summary      Summary   `json:"summary"`
 }
 
-// Summary provides a summary of the scan results
 type Summary struct {
 	Critical int `json:"critical"`
 	High     int `json:"high"`
@@ -60,14 +56,14 @@ type Summary struct {
 	Total    int `json:"total"`
 }
 
-// New creates a new scanner instance
+// creates a new scanner instance
 func New(cfg *config.Config) *Scanner {
 	return &Scanner{
 		config: cfg,
 	}
 }
 
-// ScanPath scans a directory or file for security issues
+// scans a directory
 func (s *Scanner) ScanPath(path string, scanType ScanType) (*Results, error) {
 	startTime := time.Now()
 
@@ -76,7 +72,7 @@ func (s *Scanner) ScanPath(path string, scanType ScanType) (*Results, error) {
 		Issues:   make([]Issue, 0),
 	}
 
-	// Collect files to scan
+	// collect files to scan
 	files, err := s.collectFiles(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to collect files: %w", err)
@@ -84,7 +80,7 @@ func (s *Scanner) ScanPath(path string, scanType ScanType) (*Results, error) {
 
 	results.FilesScanned = len(files)
 
-	// Scan files concurrently
+	// scan files concurrently
 	issues := make(chan Issue, 100)
 	var wg sync.WaitGroup
 	semaphore := make(chan struct{}, s.config.MaxConcurrency)
@@ -103,18 +99,16 @@ func (s *Scanner) ScanPath(path string, scanType ScanType) (*Results, error) {
 		}(file)
 	}
 
-	// Close issues channel when all scans complete
+	// close issues channel when all scans complete
 	go func() {
 		wg.Wait()
 		close(issues)
 	}()
 
-	// Collect all issues
 	for issue := range issues {
 		results.Issues = append(results.Issues, issue)
 	}
 
-	// Calculate summary
 	results.Summary = s.calculateSummary(results.Issues)
 	results.Duration = time.Since(startTime).String()
 
@@ -125,11 +119,11 @@ func (s *Scanner) ScanPath(path string, scanType ScanType) (*Results, error) {
 	return results, nil
 }
 
-// scanFile scans a single file for security issues
+// scans a single file
 func (s *Scanner) scanFile(filePath string, scanType ScanType) []Issue {
 	var issues []Issue
 
-	// Check file size
+	// check file size
 	fileInfo, err := os.Stat(filePath)
 	if err != nil {
 		return issues
@@ -142,25 +136,23 @@ func (s *Scanner) scanFile(filePath string, scanType ScanType) []Issue {
 		return issues
 	}
 
-	// Read file content
-	content, err := ioutil.ReadFile(filePath)
+	content, err := os.ReadFile(filePath)
 	if err != nil {
 		return issues
 	}
 
-	// Skip binary files
 	if isBinary(content) {
 		return issues
 	}
 
 	contentStr := string(content)
 
-	// Scan for secrets
+	// scan for secrets
 	if scanType == ScanTypeAll || scanType == ScanTypeSecrets {
 		issues = append(issues, s.scanSecrets(filePath, contentStr)...)
 	}
 
-	// Scan dependencies
+	// scan dependencies
 	if scanType == ScanTypeAll || scanType == ScanTypeDependencies {
 		if isDependencyFile(filePath) {
 			depIssues, err := s.scanDependencies(filePath, contentStr)
@@ -171,7 +163,6 @@ func (s *Scanner) scanFile(filePath string, scanType ScanType) []Issue {
 		}
 	}
 
-	// Social engineering detection
 	if scanType == ScanTypeAll || scanType == ScanTypeSocial {
 		if s.config.SocialEngineering.Enabled {
 			issues = append(issues, s.scanSocialEngineering(filePath, contentStr)...)
@@ -181,7 +172,7 @@ func (s *Scanner) scanFile(filePath string, scanType ScanType) []Issue {
 	return issues
 }
 
-// scanSecrets scans content for secret patterns
+// scans content for secret patterns
 func (s *Scanner) scanSecrets(filePath, content string) []Issue {
 	var issues []Issue
 	lines := strings.Split(content, "\n")
@@ -190,12 +181,10 @@ func (s *Scanner) scanSecrets(filePath, content string) []Issue {
 		for _, pattern := range s.config.SecretPatterns {
 			matches := pattern.GetCompiledPattern().FindAllStringSubmatch(line, -1)
 			for _, match := range matches {
-				// Check whitelist
 				if s.isWhitelisted(match[0]) {
 					continue
 				}
 
-				// Extract the actual secret if there's a capture group
 				secret := match[0]
 				if len(match) > 1 {
 					secret = match[1]
@@ -219,7 +208,7 @@ func (s *Scanner) scanSecrets(filePath, content string) []Issue {
 	return issues
 }
 
-// scanSocialEngineering scans for suspicious commit messages or comments
+// scans for suspicious commit messages
 func (s *Scanner) scanSocialEngineering(filePath, content string) []Issue {
 	var issues []Issue
 	lines := strings.Split(content, "\n")
@@ -247,7 +236,7 @@ func (s *Scanner) scanSocialEngineering(filePath, content string) []Issue {
 	return issues
 }
 
-// collectFiles recursively collects all files to scan
+// collects all files to scan
 func (s *Scanner) collectFiles(path string) ([]string, error) {
 	var files []string
 
@@ -256,9 +245,7 @@ func (s *Scanner) collectFiles(path string) ([]string, error) {
 			return err
 		}
 
-		// Skip directories
 		if info.IsDir() {
-			// Skip common directories we don't want to scan
 			dirname := filepath.Base(filePath)
 			if shouldSkipDir(dirname) {
 				return filepath.SkipDir
@@ -266,7 +253,7 @@ func (s *Scanner) collectFiles(path string) ([]string, error) {
 			return nil
 		}
 
-		// Only scan text files
+		// only scan text files
 		if shouldScanFile(filePath) {
 			files = append(files, filePath)
 		}
@@ -277,15 +264,19 @@ func (s *Scanner) collectFiles(path string) ([]string, error) {
 	return files, err
 }
 
-// maskSecret masks a secret for safe display
+// masks a secret for safe display
 func (s *Scanner) maskSecret(secret string) string {
-	if len(secret) <= 8 {
+	// mask *every* character for secrets up to length 9
+	if len(secret) <= 9 {
 		return strings.Repeat("*", len(secret))
 	}
-	return secret[:4] + strings.Repeat("*", len(secret)-8) + secret[len(secret)-4:]
+	// for longer secrets, show 4 chars at each end
+	// and mask exactly len(secret)-8 characters in the middle
+	return secret[:4] +
+		strings.Repeat("*", len(secret)-8) +
+		secret[len(secret)-4:]
 }
 
-// isWhitelisted checks if a value is in the whitelist
 func (s *Scanner) isWhitelisted(value string) bool {
 	for _, whitelisted := range s.config.Whitelist {
 		if strings.Contains(strings.ToLower(value), strings.ToLower(whitelisted)) {
@@ -295,7 +286,6 @@ func (s *Scanner) isWhitelisted(value string) bool {
 	return false
 }
 
-// calculateSummary calculates summary statistics
 func (s *Scanner) calculateSummary(issues []Issue) Summary {
 	summary := Summary{}
 
@@ -316,10 +306,7 @@ func (s *Scanner) calculateSummary(issues []Issue) Summary {
 	return summary
 }
 
-// Helper functions
-
 func isBinary(data []byte) bool {
-	// Simple binary detection - check for null bytes in first 512 bytes
 	limit := len(data)
 	if limit > 512 {
 		limit = 512
@@ -352,7 +339,6 @@ func shouldSkipDir(dirname string) bool {
 func shouldScanFile(filePath string) bool {
 	ext := strings.ToLower(filepath.Ext(filePath))
 
-	// Text file extensions
 	textExts := []string{
 		".go", ".py", ".js", ".ts", ".java", ".cpp", ".c", ".cs", ".php",
 		".rb", ".sh", ".bash", ".zsh", ".fish",
@@ -368,7 +354,7 @@ func shouldScanFile(filePath string) bool {
 		}
 	}
 
-	// Check for common config files without extensions
+	// check for common config files without extensions
 	basename := filepath.Base(filePath)
 	configFiles := []string{
 		"Dockerfile", "Makefile", "Jenkinsfile", "Vagrantfile",
@@ -404,19 +390,18 @@ func isDependencyFile(filePath string) bool {
 	return false
 }
 
-// HasIssues returns true if there are any issues found
 func (r *Results) HasIssues() bool {
 	return len(r.Issues) > 0
 }
 
-// OutputJSON outputs results in JSON format
+// outputs results in JSON format
 func (r *Results) OutputJSON(w io.Writer) error {
 	encoder := json.NewEncoder(w)
 	encoder.SetIndent("", "  ")
 	return encoder.Encode(r)
 }
 
-// OutputText outputs results in human-readable text format
+// outputs results in text format
 func (r *Results) OutputText(w io.Writer) error {
 	fmt.Fprintf(w, "GitGuardian Security Scan Results\n")
 	fmt.Fprintf(w, "=================================\n\n")
@@ -434,7 +419,7 @@ func (r *Results) OutputText(w io.Writer) error {
 	fmt.Fprintf(w, "  High:     %d\n", r.Summary.High)
 	fmt.Fprintf(w, "  Medium:   %d\n", r.Summary.Medium)
 	fmt.Fprintf(w, "  Low:      %d\n", r.Summary.Low)
-	fmt.Fprintf(w, "  Total:    %d\n\n", r.Summary.Total)
+	fmt.Fprintf(w, "  Total: %d\n", r.Summary.Total)
 
 	fmt.Fprintf(w, "Issues Found:\n")
 	fmt.Fprintf(w, "=============\n\n")

@@ -2,7 +2,6 @@ package hooks
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -13,19 +12,19 @@ import (
 const (
 	preCommitHook = `#!/bin/sh
 # GitGuardian pre-commit hook
-# This hook runs GitGuardian security scanning before each commit
+# this hook runs security scanning before each commit
 
-# Get the binary path
+# get the binary path
 GITGUARDIAN_BIN="gitguardian"
 
-# Check if gitguardian is in PATH
+# check if gitguardian is in PATH
 if ! command -v $GITGUARDIAN_BIN > /dev/null 2>&1; then
     echo "Warning: gitguardian binary not found in PATH"
     echo "Please ensure GitGuardian is installed and available in your PATH"
     exit 0
 fi
 
-# Get list of staged files
+# get list of staged files
 STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM)
 
 if [ -z "$STAGED_FILES" ]; then
@@ -35,11 +34,11 @@ fi
 
 echo "🔍 Running GitGuardian security scan on staged files..."
 
-# Create temporary directory for staged files
+# create temporary directory for staged files
 TEMP_DIR=$(mktemp -d)
 trap "rm -rf $TEMP_DIR" EXIT
 
-# Copy staged files to temp directory maintaining structure
+# copy staged files to temp directory
 for file in $STAGED_FILES; do
     if [ -f "$file" ]; then
         mkdir -p "$TEMP_DIR/$(dirname "$file")"
@@ -47,7 +46,7 @@ for file in $STAGED_FILES; do
     fi
 done
 
-# Run GitGuardian scan on temp directory
+# run scan on temp directory
 $GITGUARDIAN_BIN -path "$TEMP_DIR" -format text
 
 SCAN_RESULT=$?
@@ -69,12 +68,12 @@ exit 0
 
 	prePushHook = `#!/bin/sh
 # GitGuardian pre-push hook
-# This hook runs GitGuardian security scanning before pushing commits
+# this hook runs security scanning before pushing commits
 
-# Get the binary path
+# get the binary path
 GITGUARDIAN_BIN="gitguardian"
 
-# Check if gitguardian is in PATH
+# check if gitguardian is in PATH
 if ! command -v $GITGUARDIAN_BIN > /dev/null 2>&1; then
     echo "Warning: gitguardian binary not found in PATH"
     echo "Please ensure GitGuardian is installed and available in your PATH"
@@ -93,24 +92,24 @@ do
         :
     else
         if [ "$remote_sha" = $z40 ]; then
-            # New branch, examine all commits
+            # new branch
             range="$local_sha"
         else
-            # Update to existing branch, examine new commits
+            # update to existing branch
             range="$remote_sha..$local_sha"
         fi
 
-        # Get list of files changed in this push
+        # get list of files changed in this push
         CHANGED_FILES=$(git diff --name-only $range 2>/dev/null)
 
         if [ -n "$CHANGED_FILES" ]; then
             echo "🔍 Running GitGuardian security scan on changed files..."
             
-            # Create temporary directory
+            # create temp directory
             TEMP_DIR=$(mktemp -d)
             trap "rm -rf $TEMP_DIR" EXIT
 
-            # Copy changed files to temp directory
+            # copy changed files to temp directory
             for file in $CHANGED_FILES; do
                 if [ -f "$file" ]; then
                     mkdir -p "$TEMP_DIR/$(dirname "$file")"
@@ -118,7 +117,7 @@ do
                 fi
             done
 
-            # Run GitGuardian scan
+            # run scan
             $GITGUARDIAN_BIN -path "$TEMP_DIR" -format text
 
             SCAN_RESULT=$?
@@ -144,25 +143,25 @@ exit 0
 
 	commitMsgHook = `#!/bin/sh
 # GitGuardian commit-msg hook
-# This hook checks commit messages for suspicious keywords
+# this hook checks commit messages for suspicious words
 
-# Get the binary path
+# get the binary path
 GITGUARDIAN_BIN="gitguardian"
 
-# Check if gitguardian is in PATH
+# check if gitguardian is in PATH
 if ! command -v $GITGUARDIAN_BIN > /dev/null 2>&1; then
     exit 0
 fi
 
-# Read the commit message
+# read the commit message
 COMMIT_MSG_FILE="$1"
 COMMIT_MSG=$(cat "$COMMIT_MSG_FILE")
 
-# Check for suspicious keywords in commit message
+# check for suspicious words in message
 SUSPICIOUS_KEYWORDS="hack backdoor malware exploit bypass disable.security remove.check temporary.fix todo.security"
 
 for keyword in $SUSPICIOUS_KEYWORDS; do
-    # Replace dots with spaces for pattern matching
+    # replace dots with spaces for pattern matching
     pattern=$(echo "$keyword" | sed 's/\./ /g')
     if echo "$COMMIT_MSG" | grep -qi "$pattern"; then
         echo "⚠️  Warning: Suspicious keyword detected in commit message: '$pattern'"
@@ -183,9 +182,9 @@ exit 0
 `
 )
 
-// Install installs Git hooks in the specified repository
+// installs hooks in the specified repo
 func Install(repoPath string) error {
-	// Ensure we're in a git repository
+	// ensure we're in a git repo
 	gitDir := filepath.Join(repoPath, ".git")
 	if _, err := os.Stat(gitDir); os.IsNotExist(err) {
 		return fmt.Errorf("not a git repository: %s", repoPath)
@@ -193,22 +192,19 @@ func Install(repoPath string) error {
 
 	hooksDir := filepath.Join(gitDir, "hooks")
 
-	// Create hooks directory if it doesn't exist
+	// create hooks directory if it doesn't exist
 	if err := os.MkdirAll(hooksDir, 0755); err != nil {
 		return fmt.Errorf("failed to create hooks directory: %w", err)
 	}
 
-	// Install pre-commit hook
 	if err := installHook(hooksDir, "pre-commit", preCommitHook); err != nil {
 		return fmt.Errorf("failed to install pre-commit hook: %w", err)
 	}
 
-	// Install pre-push hook
 	if err := installHook(hooksDir, "pre-push", prePushHook); err != nil {
 		return fmt.Errorf("failed to install pre-push hook: %w", err)
 	}
 
-	// Install commit-msg hook
 	if err := installHook(hooksDir, "commit-msg", commitMsgHook); err != nil {
 		return fmt.Errorf("failed to install commit-msg hook: %w", err)
 	}
@@ -223,7 +219,7 @@ func Install(repoPath string) error {
 	return nil
 }
 
-// Uninstall removes GitGuardian hooks from the repository
+// removes GitGuardian hooks from the repo
 func Uninstall(repoPath string) error {
 	gitDir := filepath.Join(repoPath, ".git")
 	if _, err := os.Stat(gitDir); os.IsNotExist(err) {
@@ -236,8 +232,8 @@ func Uninstall(repoPath string) error {
 	for _, hook := range hooks {
 		hookPath := filepath.Join(hooksDir, hook)
 
-		// Check if it's our hook by looking for GitGuardian signature
-		if content, err := ioutil.ReadFile(hookPath); err == nil {
+		// check if it's our hook
+		if content, err := os.ReadFile(hookPath); err == nil {
 			if strings.Contains(string(content), "GitGuardian") {
 				if err := os.Remove(hookPath); err != nil {
 					fmt.Printf("Warning: failed to remove %s hook: %v\n", hook, err)
@@ -251,20 +247,20 @@ func Uninstall(repoPath string) error {
 	return nil
 }
 
-// installHook installs a single hook file
+// installs a single hook file
 func installHook(hooksDir, hookName, hookContent string) error {
 	hookPath := filepath.Join(hooksDir, hookName)
 
-	// Check if hook already exists
+	// check if hook already exists
 	if _, err := os.Stat(hookPath); err == nil {
-		// Read existing hook
-		existing, err := ioutil.ReadFile(hookPath)
+		// read existing hook
+		existing, err := os.ReadFile(hookPath)
 		if err == nil && strings.Contains(string(existing), "GitGuardian") {
 			fmt.Printf("✅ %s hook already installed\n", hookName)
 			return nil
 		}
 
-		// Backup existing hook
+		// backup existing hook
 		backupPath := hookPath + ".backup"
 		if err := os.Rename(hookPath, backupPath); err != nil {
 			return fmt.Errorf("failed to backup existing hook: %w", err)
@@ -272,8 +268,8 @@ func installHook(hooksDir, hookName, hookContent string) error {
 		fmt.Printf("📁 Backed up existing %s hook to %s\n", hookName, backupPath)
 	}
 
-	// Write the hook
-	if err := ioutil.WriteFile(hookPath, []byte(hookContent), 0755); err != nil {
+	// write the hook
+	if err := os.WriteFile(hookPath, []byte(hookContent), 0755); err != nil {
 		return fmt.Errorf("failed to write hook file: %w", err)
 	}
 
@@ -281,17 +277,14 @@ func installHook(hooksDir, hookName, hookContent string) error {
 	return nil
 }
 
-// GetChangedFiles returns a list of changed files for different Git operations
+// returns a list of changed files for different Git operations
 func GetChangedFiles(operation string) ([]string, error) {
 	var cmd *exec.Cmd
 
 	switch operation {
 	case "pre-commit":
-		// Get staged files
 		cmd = exec.Command("git", "diff", "--cached", "--name-only", "--diff-filter=ACM")
 	case "pre-push":
-		// This would need more context about the push range
-		// For now, just return modified files
 		cmd = exec.Command("git", "diff", "--name-only", "HEAD")
 	default:
 		return nil, fmt.Errorf("unsupported operation: %s", operation)
@@ -304,7 +297,7 @@ func GetChangedFiles(operation string) ([]string, error) {
 
 	files := strings.Split(strings.TrimSpace(string(output)), "\n")
 
-	// Filter out empty lines
+	// filter out empty lines
 	var result []string
 	for _, file := range files {
 		if file != "" {
@@ -315,21 +308,21 @@ func GetChangedFiles(operation string) ([]string, error) {
 	return result, nil
 }
 
-// IsGitRepository checks if the given path is a git repository
+// checks if the given path is a git repo
 func IsGitRepository(path string) bool {
 	gitDir := filepath.Join(path, ".git")
 	if info, err := os.Stat(gitDir); err == nil {
 		return info.IsDir()
 	}
 
-	// Check if we're inside a git repository
+	// check if we're inside a git repo
 	cmd := exec.Command("git", "rev-parse", "--git-dir")
 	cmd.Dir = path
 	_, err := cmd.Output()
 	return err == nil
 }
 
-// GetRepositoryRoot returns the root directory of the git repository
+// returns the root directory of the git repo
 func GetRepositoryRoot(path string) (string, error) {
 	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
 	cmd.Dir = path
@@ -342,7 +335,7 @@ func GetRepositoryRoot(path string) (string, error) {
 	return strings.TrimSpace(string(output)), nil
 }
 
-// CheckHooksInstalled checks if GitGuardian hooks are installed
+// checks if hooks are installed
 func CheckHooksInstalled(repoPath string) (map[string]bool, error) {
 	status := make(map[string]bool)
 	hooks := []string{"pre-commit", "pre-push", "commit-msg"}
@@ -353,7 +346,7 @@ func CheckHooksInstalled(repoPath string) (map[string]bool, error) {
 	for _, hook := range hooks {
 		hookPath := filepath.Join(hooksDir, hook)
 
-		if content, err := ioutil.ReadFile(hookPath); err == nil {
+		if content, err := os.ReadFile(hookPath); err == nil {
 			status[hook] = strings.Contains(string(content), "GitGuardian")
 		} else {
 			status[hook] = false
@@ -363,7 +356,7 @@ func CheckHooksInstalled(repoPath string) (map[string]bool, error) {
 	return status, nil
 }
 
-// GenerateHookScript generates a hook script for a specific platform
+// generates a hook script for a specific platform
 func GenerateHookScript(hookType, binaryPath string) string {
 	var script string
 
@@ -378,13 +371,13 @@ func GenerateHookScript(hookType, binaryPath string) string {
 		return ""
 	}
 
-	// Replace binary path if specified
+	// replace binary path if specified
 	if binaryPath != "" {
 		script = strings.Replace(script, `GITGUARDIAN_BIN="gitguardian"`,
 			fmt.Sprintf(`GITGUARDIAN_BIN="%s"`, binaryPath), 1)
 	}
 
-	// Adjust for Windows if needed
+	// adjust for windows if needed
 	if runtime.GOOS == "windows" {
 		// Convert to Windows batch script
 		script = convertToWindowsBatch(script)
@@ -393,9 +386,8 @@ func GenerateHookScript(hookType, binaryPath string) string {
 	return script
 }
 
-// convertToWindowsBatch converts shell script to Windows batch script
+// converts shell script to Windows batch script
 func convertToWindowsBatch(shellScript string) string {
-	// This is a simplified conversion - in practice, you might want more sophisticated conversion
 	batchScript := `@echo off
 REM GitGuardian Windows hook
 REM This is a simplified Windows version of the hook

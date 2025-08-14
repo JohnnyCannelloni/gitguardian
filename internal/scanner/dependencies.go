@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"path/filepath"
 	"regexp"
@@ -12,7 +12,6 @@ import (
 	"time"
 )
 
-// Dependency represents a project dependency
 type Dependency struct {
 	Name      string `json:"name"`
 	Version   string `json:"version"`
@@ -20,7 +19,6 @@ type Dependency struct {
 	File      string `json:"file"`
 }
 
-// Vulnerability represents a security vulnerability
 type Vulnerability struct {
 	ID         string   `json:"id"`
 	Summary    string   `json:"summary"`
@@ -34,12 +32,12 @@ type Vulnerability struct {
 	Affected   []string `json:"affected"`
 }
 
-// OSVResponse represents the response from OSV API
+// represents the response from OSV API
 type OSVResponse struct {
 	Vulns []OSVVulnerability `json:"vulns"`
 }
 
-// OSVVulnerability represents a vulnerability from OSV API
+// represents a vulnerability from OSV API
 type OSVVulnerability struct {
 	ID         string         `json:"id"`
 	Summary    string         `json:"summary"`
@@ -82,11 +80,11 @@ type OSVReference struct {
 	URL  string `json:"url"`
 }
 
-// scanDependencies scans a dependency file for vulnerabilities
+// scans a dependency file for vulnerabilities
 func (s *Scanner) scanDependencies(filePath, content string) ([]Issue, error) {
 	var issues []Issue
 
-	// Parse dependencies based on file type
+	// parse dependencies based on file type
 	deps, err := s.parseDependencies(filePath, content)
 	if err != nil {
 		return issues, fmt.Errorf("failed to parse dependencies: %w", err)
@@ -96,7 +94,7 @@ func (s *Scanner) scanDependencies(filePath, content string) ([]Issue, error) {
 		return issues, nil
 	}
 
-	// Check vulnerabilities using OSV API
+	// check vulnerabilities with OSV API
 	if s.config.DependencyAPIs.OSVEnabled {
 		vulns, err := s.checkOSVVulnerabilities(deps)
 		if err != nil && s.config.Verbose {
@@ -109,7 +107,7 @@ func (s *Scanner) scanDependencies(filePath, content string) ([]Issue, error) {
 	return issues, nil
 }
 
-// parseDependencies parses dependencies from various file formats
+// parses dependencies from multiple file formats
 func (s *Scanner) parseDependencies(filePath, content string) ([]Dependency, error) {
 	filename := strings.ToLower(filepath.Base(filePath))
 
@@ -133,7 +131,7 @@ func (s *Scanner) parseDependencies(filePath, content string) ([]Dependency, err
 	}
 }
 
-// parsePackageJSON parses Node.js package.json
+// parses Node.js package.json
 func (s *Scanner) parsePackageJSON(content, filePath string) ([]Dependency, error) {
 	var deps []Dependency
 	var pkg struct {
@@ -145,7 +143,7 @@ func (s *Scanner) parsePackageJSON(content, filePath string) ([]Dependency, erro
 		return deps, err
 	}
 
-	// Parse regular dependencies
+	// parse regular dependencies
 	for name, version := range pkg.Dependencies {
 		deps = append(deps, Dependency{
 			Name:      name,
@@ -155,7 +153,7 @@ func (s *Scanner) parsePackageJSON(content, filePath string) ([]Dependency, erro
 		})
 	}
 
-	// Parse dev dependencies
+	// parse dev dependencies
 	for name, version := range pkg.DevDependencies {
 		deps = append(deps, Dependency{
 			Name:      name,
@@ -168,7 +166,7 @@ func (s *Scanner) parsePackageJSON(content, filePath string) ([]Dependency, erro
 	return deps, nil
 }
 
-// parseGoMod parses Go module file
+// parses module file
 func (s *Scanner) parseGoMod(content, filePath string) ([]Dependency, error) {
 	var deps []Dependency
 	lines := strings.Split(content, "\n")
@@ -190,7 +188,7 @@ func (s *Scanner) parseGoMod(content, filePath string) ([]Dependency, error) {
 		}
 
 		if strings.HasPrefix(line, "require ") || inRequire {
-			// Remove "require " prefix if present
+			// remove "require " prefix
 			if strings.HasPrefix(line, "require ") {
 				line = strings.TrimPrefix(line, "require ")
 			}
@@ -210,18 +208,17 @@ func (s *Scanner) parseGoMod(content, filePath string) ([]Dependency, error) {
 	return deps, nil
 }
 
-// parseRequirementsTxt parses Python requirements.txt
+// parses python requirements.txt
 func (s *Scanner) parseRequirementsTxt(content, filePath string) ([]Dependency, error) {
 	var deps []Dependency
 	lines := strings.Split(content, "\n")
 
-	// Regex for package==version, package>=version, etc.
+	// regex for package==version, package>=version, etc.
 	requirePattern := regexp.MustCompile(`^([a-zA-Z0-9_\-\.]+)([><=!]+)([0-9\.]+[a-zA-Z0-9\.\-]*)`)
 
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 
-		// Skip comments and empty lines
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
@@ -240,7 +237,7 @@ func (s *Scanner) parseRequirementsTxt(content, filePath string) ([]Dependency, 
 	return deps, nil
 }
 
-// parseGemfile parses Ruby Gemfile
+// parses Ruby Gemfile
 func (s *Scanner) parseGemfile(content, filePath string) ([]Dependency, error) {
 	var deps []Dependency
 	lines := strings.Split(content, "\n")
@@ -268,7 +265,7 @@ func (s *Scanner) parseGemfile(content, filePath string) ([]Dependency, error) {
 	return deps, nil
 }
 
-// parseComposerJSON parses PHP composer.json
+// parses PHP composer.json
 func (s *Scanner) parseComposerJSON(content, filePath string) ([]Dependency, error) {
 	var deps []Dependency
 	var composer struct {
@@ -303,11 +300,10 @@ func (s *Scanner) parseComposerJSON(content, filePath string) ([]Dependency, err
 	return deps, nil
 }
 
-// parsePomXML parses Maven pom.xml (simplified)
+// parses Maven pom.xml
 func (s *Scanner) parsePomXML(content, filePath string) ([]Dependency, error) {
 	var deps []Dependency
 
-	// Simple regex-based parsing for dependencies
 	depPattern := regexp.MustCompile(`<groupId>([^<]+)</groupId>\s*<artifactId>([^<]+)</artifactId>\s*<version>([^<]+)</version>`)
 
 	matches := depPattern.FindAllStringSubmatch(content, -1)
@@ -325,7 +321,7 @@ func (s *Scanner) parsePomXML(content, filePath string) ([]Dependency, error) {
 	return deps, nil
 }
 
-// parseCargoToml parses Rust Cargo.toml
+// parses Rust Cargo.toml
 func (s *Scanner) parseCargoToml(content, filePath string) ([]Dependency, error) {
 	var deps []Dependency
 	lines := strings.Split(content, "\n")
@@ -362,11 +358,11 @@ func (s *Scanner) parseCargoToml(content, filePath string) ([]Dependency, error)
 	return deps, nil
 }
 
-// checkOSVVulnerabilities checks dependencies against OSV database
+// checks dependencies with OSV database
 func (s *Scanner) checkOSVVulnerabilities(deps []Dependency) ([]Vulnerability, error) {
 	var vulnerabilities []Vulnerability
 
-	// Group dependencies by ecosystem for batch requests
+	// group dependencies by ecosystem
 	ecosystemDeps := make(map[string][]Dependency)
 	for _, dep := range deps {
 		ecosystemDeps[dep.Ecosystem] = append(ecosystemDeps[dep.Ecosystem], dep)
@@ -375,7 +371,7 @@ func (s *Scanner) checkOSVVulnerabilities(deps []Dependency) ([]Vulnerability, e
 	client := &http.Client{Timeout: 30 * time.Second}
 
 	for ecosystem, depList := range ecosystemDeps {
-		// Create batch request for OSV API
+		// create request for OSV API
 		var packages []map[string]interface{}
 		for _, dep := range depList {
 			packages = append(packages, map[string]interface{}{
@@ -406,7 +402,7 @@ func (s *Scanner) checkOSVVulnerabilities(deps []Dependency) ([]Vulnerability, e
 			return vulnerabilities, fmt.Errorf("OSV API returned status %d", resp.StatusCode)
 		}
 
-		body, err := ioutil.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return vulnerabilities, fmt.Errorf("failed to read OSV response: %w", err)
 		}
@@ -421,7 +417,7 @@ func (s *Scanner) checkOSVVulnerabilities(deps []Dependency) ([]Vulnerability, e
 			return vulnerabilities, fmt.Errorf("failed to parse OSV response: %w", err)
 		}
 
-		// Convert OSV vulnerabilities to our format
+		// convert OSV vulnerabilities to the project format
 		for i, result := range response.Results {
 			if i < len(depList) {
 				dep := depList[i]
@@ -435,7 +431,7 @@ func (s *Scanner) checkOSVVulnerabilities(deps []Dependency) ([]Vulnerability, e
 	return vulnerabilities, nil
 }
 
-// convertOSVVuln converts OSV vulnerability to our format
+// converts OSV vulnerability to project format
 func (s *Scanner) convertOSVVuln(osv OSVVulnerability, dep Dependency) Vulnerability {
 	vuln := Vulnerability{
 		ID:        osv.ID,
@@ -444,10 +440,10 @@ func (s *Scanner) convertOSVVuln(osv OSVVulnerability, dep Dependency) Vulnerabi
 		Published: osv.Published,
 		Modified:  osv.Modified,
 		Aliases:   osv.Aliases,
-		Severity:  "medium", // Default severity
+		Severity:  "medium",
 	}
 
-	// Extract CVSS score and severity
+	// extract CVSS score
 	for _, severity := range osv.Severity {
 		if severity.Type == "CVSS_V3" {
 			// Parse CVSS score (simplified)
@@ -457,7 +453,7 @@ func (s *Scanner) convertOSVVuln(osv OSVVulnerability, dep Dependency) Vulnerabi
 		}
 	}
 
-	// Extract references
+	// extract references
 	for _, ref := range osv.References {
 		vuln.References = append(vuln.References, ref.URL)
 	}
@@ -465,9 +461,8 @@ func (s *Scanner) convertOSVVuln(osv OSVVulnerability, dep Dependency) Vulnerabi
 	return vuln
 }
 
-// extractCVSSSeverity extracts severity from CVSS score
+// extracts severity from CVSS score
 func (s *Scanner) extractCVSSSeverity(cvssString string) string {
-	// This is a simplified CVSS parsing
 	if strings.Contains(cvssString, "/AV:N/") && strings.Contains(cvssString, "/AC:L/") {
 		return "high"
 	}
@@ -477,7 +472,7 @@ func (s *Scanner) extractCVSSSeverity(cvssString string) string {
 	return "medium"
 }
 
-// convertVulnsToIssues converts vulnerabilities to issues
+// converts vulnerabilities to issues
 func (s *Scanner) convertVulnsToIssues(vulns []Vulnerability, filePath string) []Issue {
 	var issues []Issue
 
@@ -498,11 +493,8 @@ func (s *Scanner) convertVulnsToIssues(vulns []Vulnerability, filePath string) [
 	return issues
 }
 
-// Helper functions
-
-// cleanVersion removes version prefixes like ^, ~, >=, etc.
+// removes version prefixes
 func cleanVersion(version string) string {
-	// Remove common version prefixes
 	prefixes := []string{"^", "~", ">=", "<=", ">", "<", "="}
 	for _, prefix := range prefixes {
 		if strings.HasPrefix(version, prefix) {
@@ -512,7 +504,7 @@ func cleanVersion(version string) string {
 	return strings.TrimSpace(version)
 }
 
-// mapToOSVEcosystem maps our ecosystem names to OSV ecosystem names
+// maps our ecosystem names
 func mapToOSVEcosystem(ecosystem string) string {
 	mapping := map[string]string{
 		"npm":       "npm",
